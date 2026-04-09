@@ -1,0 +1,114 @@
+name: CI Build and Push Blog Image
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch: {}
+
+env:
+  HARBOR_PUSH_HOST: ${{ vars.HARBOR_PUSH_HOST }}
+  HARBOR_PUSH_PROJECT: ${{ vars.HARBOR_PUSH_PROJECT }}
+  IMAGE_NAME: blog
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      git-commit: ${{ steps.version.outputs.git-commit }}
+      git-branch: ${{ steps.version.outputs.git-branch }}
+      timestamp: ${{ steps.version.outputs.timestamp }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate version info
+        id: version
+        run: |
+          GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+          GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          echo "git-commit=$GIT_COMMIT" >> $GITHUB_OUTPUT
+          echo "git-branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+          echo "📋 Blog 版本信息："
+          echo "  - Git Commit: $GIT_COMMIT"
+          echo "  - Git Branch: $GIT_BRANCH"
+          echo "  - Timestamp: $TIMESTAMP"
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: prepare
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10'
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Types
+        run: pnpm types:check
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [prepare, lint]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Harbor CI credentials
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -z "${{ secrets.HARBOR_CI_USER }}" ] || [ -z "${{ secrets.HARBOR_CI_PASS }}" ]; then
+            echo "❌ Error: Harbor CI credentials not found. Please set repository secrets HARBOR_CI_USER and HARBOR_CI_PASS"
+            exit 1
+          fi
+
+      - name: Login to Harbor
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.HARBOR_PUSH_HOST }}
+          username: ${{ secrets.HARBOR_CI_USER }}
+          password: ${{ secrets.HARBOR_CI_PASS }}
+
+      - name: Build (PR, no push)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          platforms: linux/amd64
+          tags: ${{ env.HARBOR_PUSH_HOST }}/${{ env.HARBOR_PUSH_PROJECT }}/${{ env.IMAGE_NAME }}:pr-${{ needs.prepare.outputs.git-commit }}
+          cache-from: type=gha,scope=blog
+          cache-to: type=gha,scope=blog,mode=max
+
+      - name: Build and push (main/dev)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.HARBOR_PUSH_HOST }}/${{ env.HARBOR_PUSH_PROJECT }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.HARBOR_PUSH_HOST }}/${{ env.HARBOR_PUSH_PROJECT }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.git-commit }}-${{ needs.prepare.outputs.timestamp }}
+          cache-from: type=gha,scope=blog
+          cache-to: type=gha,scope=blog,mode=max
