@@ -37,7 +37,7 @@ export function baseOptions(): BaseLayoutProps {
         children: (
           <NavbarMenu>
             <NavbarMenuTrigger>
-              <a href="https://docs.scalebox.dev/en/guides">Documentation</a>
+              <a href="https://docs.scalebox.dev">Documentation</a>
             </NavbarMenuTrigger>
             <NavbarMenuContent>
               <NavbarMenuLink href="https://docs.scalebox.dev/en/guides" external>
