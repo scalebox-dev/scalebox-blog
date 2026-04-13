@@ -5,6 +5,14 @@ import { getMDXComponents } from '@/components/mdx';
 import { InlineTOC } from 'fumadocs-ui/components/inline-toc';
 import type { Metadata } from 'next';
 import { ArrowLeft, Calendar, User } from 'lucide-react';
+import { cookies } from 'next/headers';
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  normalizeLocale,
+  toBcp47Locale,
+  type SupportedLocale,
+} from '@/lib/prefs';
 
 export default async function BlogPostPage(props: {
   params: Promise<{ slug: string }>;
@@ -13,6 +21,11 @@ export default async function BlogPostPage(props: {
   const page = blog.getPage([params.slug]);
 
   if (!page) notFound();
+
+  const cookieStore = await cookies();
+  const preferredLocale: SupportedLocale =
+    normalizeLocale(cookieStore.get(LOCALE_COOKIE)?.value) ?? DEFAULT_LOCALE;
+  const intlLocale = toBcp47Locale(preferredLocale);
 
   const { body: Mdx, toc } = await page.data.load();
 
@@ -33,7 +46,7 @@ export default async function BlogPostPage(props: {
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Calendar className="size-3.5" />
-          {new Date(page.data.date).toLocaleDateString('en-US', {
+          {new Date(page.data.date).toLocaleDateString(intlLocale, {
             year: 'numeric',
             month: 'long',
             day: 'numeric',

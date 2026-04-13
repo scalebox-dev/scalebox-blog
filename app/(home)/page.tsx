@@ -1,13 +1,26 @@
 import Link from 'next/link';
 import { blog } from '@/lib/source';
 import { Calendar, User } from 'lucide-react';
+import { cookies } from 'next/headers';
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  normalizeLocale,
+  toBcp47Locale,
+  type SupportedLocale,
+} from '@/lib/prefs';
 
 function getName(path: string): string {
   const base = path.split('/').pop() ?? '';
   return base.replace(/\.mdx?$/, '');
 }
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const cookieStore = await cookies();
+  const preferredLocale: SupportedLocale =
+    normalizeLocale(cookieStore.get(LOCALE_COOKIE)?.value) ?? DEFAULT_LOCALE;
+  const intlLocale = toBcp47Locale(preferredLocale);
+
   const posts = [...blog.getPages()].sort(
     (a, b) =>
       new Date(b.data.date ?? getName(b.path)).getTime() -
@@ -43,7 +56,7 @@ export default function BlogPage() {
               </span>
               <span className="inline-flex items-center gap-1">
                 <Calendar className="size-3" />
-                {new Date(post.data.date ?? getName(post.path)).toLocaleDateString('en-US', {
+                {new Date(post.data.date ?? getName(post.path)).toLocaleDateString(intlLocale, {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

@@ -10,6 +10,8 @@ import {
 
 export function baseOptions(): BaseLayoutProps {
   return {
+    // 关闭 HomeLayout 自带的语言切换入口；语言偏好通过 `?lang=` + cookie 管理。
+    i18n: false,
     nav: {
       title: appName,
       url: '/',
