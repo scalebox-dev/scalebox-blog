@@ -1,5 +1,7 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { defineI18nUI } from 'fumadocs-ui/i18n';
 import { appName, gitConfig } from './shared';
+import { i18n } from '@/lib/i18n';
 import { BookOpen, FileCode, Terminal, Package, ExternalLink } from 'lucide-react';
 import {
   NavbarMenu,
@@ -8,13 +10,23 @@ import {
   NavbarMenuTrigger,
 } from 'fumadocs-ui/layouts/home/navbar';
 
-export function baseOptions(): BaseLayoutProps {
+export const blogI18nUI = defineI18nUI(i18n, {
+  en: {
+    displayName: 'English',
+  },
+  'zh-cn': {
+    displayName: '简体中文',
+  },
+  'zh-tw': {
+    displayName: '繁體中文',
+  },
+});
+
+export function baseOptions(locale: string): BaseLayoutProps {
   return {
-    // 关闭 HomeLayout 自带的语言切换入口；语言偏好通过 `?lang=` + cookie 管理。
-    i18n: false,
     nav: {
       title: appName,
-      url: '/',
+      url: `/${locale}`,
     },
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
     links: [
@@ -24,9 +36,24 @@ export function baseOptions(): BaseLayoutProps {
         on: 'menu',
         text: 'Documentation',
         items: [
-          { text: 'Guides', url: 'https://docs.scalebox.dev/en/guides', external: true, icon: <BookOpen className="size-4" /> },
-          { text: 'API Reference', url: 'https://docs.scalebox.dev/en/api', external: true, icon: <FileCode className="size-4" /> },
-          { text: 'CLI', url: 'https://docs.scalebox.dev/en/cli', external: true, icon: <Terminal className="size-4" /> },
+          {
+            text: 'Guides',
+            url: `https://docs.scalebox.dev/${locale}/guides`,
+            external: true,
+            icon: <BookOpen className="size-4" />,
+          },
+          {
+            text: 'API Reference',
+            url: `https://docs.scalebox.dev/${locale}/api`,
+            external: true,
+            icon: <FileCode className="size-4" />,
+          },
+          {
+            text: 'CLI',
+            url: `https://docs.scalebox.dev/${locale}/cli`,
+            external: true,
+            icon: <Terminal className="size-4" />,
+          },
           { text: 'Python SDK', url: 'https://github.com/scalebox-dev/scalebox-sdk-python', external: true, icon: <Package className="size-4" /> },
           { text: 'JS SDK', url: 'https://github.com/scalebox-dev/scalebox-sdk-js', external: true, icon: <Package className="size-4" /> },
           { text: 'Golang SDK', url: 'https://github.com/scalebox-dev/scalebox-sdk-golang', external: true, icon: <Package className="size-4" /> },
@@ -39,20 +66,20 @@ export function baseOptions(): BaseLayoutProps {
         children: (
           <NavbarMenu>
             <NavbarMenuTrigger>
-              <a href="https://docs.scalebox.dev">Documentation</a>
+              <a href={`https://docs.scalebox.dev/${locale}`}>Documentation</a>
             </NavbarMenuTrigger>
             <NavbarMenuContent>
-              <NavbarMenuLink href="https://docs.scalebox.dev/en/guides" external>
+              <NavbarMenuLink href={`https://docs.scalebox.dev/${locale}/guides`} external>
                 <BookOpen className="size-5 text-fd-muted-foreground" />
                 <p className="font-medium">Guides</p>
                 <p className="text-fd-muted-foreground text-sm">Tutorials and getting started</p>
               </NavbarMenuLink>
-              <NavbarMenuLink href="https://docs.scalebox.dev/en/api" external>
+              <NavbarMenuLink href={`https://docs.scalebox.dev/${locale}/api`} external>
                 <FileCode className="size-5 text-fd-muted-foreground" />
                 <p className="font-medium">API Reference</p>
                 <p className="text-fd-muted-foreground text-sm">Complete REST API docs</p>
               </NavbarMenuLink>
-              <NavbarMenuLink href="https://docs.scalebox.dev/en/cli" external>
+              <NavbarMenuLink href={`https://docs.scalebox.dev/${locale}/cli`} external>
                 <Terminal className="size-5 text-fd-muted-foreground" />
                 <p className="font-medium">CLI</p>
                 <p className="text-fd-muted-foreground text-sm">Command-line interface reference</p>

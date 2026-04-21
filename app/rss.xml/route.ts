@@ -19,7 +19,7 @@ export function GET() {
     (a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime(),
   )) {
     feed.addItem({
-      id: page.url,
+      id: `${baseUrl}${page.url}`,
       title: page.data.title,
       description: page.data.description ?? '',
       link: `${baseUrl}${page.url}`,

@@ -1,0 +1,109 @@
+---
+title: ScaleBox 平台架構概覽
+description: ScaleBox 如何運作——控制面、沙盒，以及主控台、API、CLI 與 SDK 如何協同提供沙盒服務。
+author: ScaleBox Team
+date: 2026-04-21
+icon: Layers
+---
+
+## 你在使用什麼
+
+ScaleBox 提供**隔離的沙盒環境**：每個沙盒具有明確的 CPU、記憶體、儲存、網路以及選用能力（例如暴露連接埠、WebRTC 與可配置的出口網路行為）。你透過範本、專案和使用者介面來使用沙盒——**無須**接觸底層編排概念。**控制面**（REST API、持久化、排程、計費等）接收你的請求，為你建立與管理沙盒，並追蹤其生命週期與用量。
+
+這裡最重要的架構點是：ScaleBox 基於**同一個沙盒引擎**，但對外提供 **四條使用者路徑**：**Web 主控台**、**HTTP API**、**CLI** 與 **SDK**。產品設計盡量讓每條路徑都能端到端完成工作，避免使用者在同一個工作流中頻繁切換入口。
+
+## 控制面與你的沙盒
+
+- **控制面** — ScaleBox 後端提供版本化的 HTTP 路由（例如 `/v1/...`），對請求做驗證（通常使用 API Key），並協調範本、專案、沙盒、網路、歸檔、計費等相關能力。它是生命週期與中繼資料的權威來源。
+- **沙盒執行環境** — 每個正在執行的沙盒都是一個靈活的工作負載環境。它既可以執行 sandbox agent，也可以執行使用者程序、notebook kernel、自訂 Web 服務、TCP 服務、WebRTC 端點，以及其他由範本與執行時配置決定的工作負載。
+
+所有面向使用者的工具最終都依賴**同一套**控制面，但對於已經執行中的沙盒，不同路徑與不同場景可以採用不同的互動方式。
+
+## Web 主控台（儀表板）
+
+**主控台**是面向組織的瀏覽器介面：登入、API 金鑰、範本、沙盒清單與詳情、用量與帳單檢視，以及各類與 API 能力對應的可視化操作。
+
+**適合：** 探索產品、不寫程式碼的日常維運、簽發與輪換 API 金鑰，以及偏好圖形介面的協作夥伴。
+
+**與 API 的關係：** 主控台與 API 共用同一後端。你在介面上操作的概念（沙盒、範本、金鑰等）在 [API 參考](https://docs.scalebox.dev/zh-tw/api/) 中都有對應說明。
+
+## HTTP API
+
+**REST API** 是自動化與整合的契約。任何能發 HTTPS 請求並帶上 API Key（例如 `X-API-Key` 標頭）的語言或工具都可以直接使用。它直接覆蓋控制面操作，也會代理部分低層沙盒操作，例如檔案、終端機與命令執行，讓 API-first 使用者盡量沿著同一條路徑完成工作。
+
+**適合：** CI/CD、內部工具、依需求在服務中建立和管理沙盒，以及希望大多數操作都走同一條穩定後端路徑的整合場景。
+
+**與其他工具的關係：** CLI 與 SDK 都呼叫這些介面，並非另一套獨立產品。路徑與語意詳見 [API 參考](https://docs.scalebox.dev/zh-tw/api/)。
+
+## CLI（`scalebox-cli`）
+
+**CLI** 已將大部分面向客戶開放的後端能力封裝為命令：驗證、沙盒、範本、專案、API 金鑰、通知、Webhook、用量、帳單等。對於沙盒，它現在不只覆蓋建立／清單／連線流程，也涵蓋檔案與命令導向的工作流，例如 `sandbox exec`，以及在相容範本上的進階 `sandbox run-code` 流程。憑證儲存在本機（例如 `~/.scalebox-cli/`），並指向你設定的 API 基底位址。
+
+**適合：** 終端機優先的工作流、指令稿，以及希望用可讀命令與 JSON 輸出、又不想維護 SDK 依賴的場景。
+
+**與 API 的關係：** CLI 會用後端處理控制面任務，但在很多沙盒內操作上，它也可以拿著沙盒專屬憑證直接連到 `sandbox_domain`。這樣既維持同一套產品模型，也讓終端機工作流更完整。安裝、驗證與命令說明見 [CLI 參考](https://docs.scalebox.dev/zh-tw/cli/)。
+
+## SDK（Python、JavaScript、Go 等）
+
+官方 **SDK** 用符合語言慣例的型別、輔助函式與錯誤處理封裝 HTTP API，通常以獨立儲存庫發布（文件首頁可連結到 Python、JavaScript、Go 等用戶端）。
+
+**適合：** 長期執行的應用、Agent、Notebook，以及把沙盒管理納入產品邏輯的後端服務。
+
+**與 API 的關係：** SDK 面向同一套 REST API 維護，但和 CLI 一樣，在後端回傳 `sandbox_domain` 與沙盒級令牌後，也可能切換為直接存取沙盒網域。
+
+## 各部分如何協同
+
+<Cards>
+  <Card
+    title="1. 四條使用者路徑"
+    description="你可以使用 Web 主控台、CLI、SDK，或直接送出 HTTP API 請求。ScaleBox 會盡量讓每條路徑都能端到端完成工作，避免中途切換工具。"
+  />
+  <Card
+    title="2. 後端作為控制面"
+    description="後端是驗證、範本、專案、沙盒生命週期、網路配置、資源管理、用量與計費的權威處理者。"
+  />
+  <Card
+    title="3. 執行中的沙盒是靈活運行時"
+    description="沙盒不只是檔案/命令目標。它可以承載 sandbox agent、自訂 Web 服務、TCP 服務、notebook kernel、WebRTC 端點，以及範本定義的其他工作負載。"
+  />
+  <Card
+    title="4. 兩種互動模式"
+    description="沙盒執行後，客戶端既可以繼續走後端代理路徑，也可以直接存取 `sandbox_domain`，用於檔案、終端機、自訂服務、串流互動等執行時能力。"
+  />
+</Cards>
+
+**架構概覽**
+
+`Web 主控台 / CLI / SDK / 自訂 HTTP` → `後端控制面` → `沙盒被建立並暴露` → `後端代理存取 和/或 直接存取 sandbox_domain`
+
+| 操作層面 | 主要路徑 | 涵蓋內容 |
+|---|---|---|
+| 控制面操作 | 客戶端 → 後端 | 驗證、範本、專案、建立、暫停、恢復、終止、資源管理、用量、計費 |
+| 由後端代理的低層操作 | 客戶端 → 後端 → 沙盒 | 檔案、終端機、exec、串流觀察/取消等能力，適合希望留在同一路徑內的使用者 |
+| 直接執行時互動 | 客戶端 → `sandbox_domain` | 暴露連接埠上的自訂服務、直連 HTTP/WebSocket、TCP/TLS 服務、WebRTC 端點，以及其他沙盒內工作負載 |
+| sandbox agent 能力 | 直連或經代理 | 檔案系統操作、程序/PTY、命令執行、watch/stream，以及依範本能力決定的 `run-code` / 執行上下文 |
+
+典型流程：
+
+1. **驗證**——瀏覽器工作階段或供 CLI／SDK／API 使用的 API Key。
+2. **定義範本並建立沙盒**——任選主控台、`scalebox-cli sandbox create`、SDK 呼叫或對 API 的 `POST`。
+3. 控制面**建立並執行**沙盒；你透過 API／CLI／SDK **輪詢或訂閱**狀態，或在主控台檢視。
+4. 沙盒執行後，你可以繼續走後端代理路徑，也可以依介面與執行時能力的需要直接連到 `sandbox_domain`。
+
+多種入口可以**組合使用**：常見做法是主控台管金鑰與總覽，CLI 做本機迭代，生產環境用 API 或 SDK 做自動化。
+
+## 快速開始
+
+1. **帳戶** — 在你的 ScaleBox 實例註冊，開啟 [儀表板](https://www.scalebox.dev/dashboard) **建立或複製 API Key**。
+2. **選擇入口** — 終端機使用者可看 [CLI 快速開始](https://docs.scalebox.dev/zh-tw/cli/quick-start)；也可從 [指南首頁](https://docs.scalebox.dev/zh-tw/guides) 選擇 SDK，或直接查閱 [API 參考](https://docs.scalebox.dev/zh-tw/api/) 自行呼叫 HTTP。
+3. **建立沙盒** — 從公開範本起步，再在指南與 CLI／API 文件中深入連接埠、生命週期與進階主題。
+
+若關注沙盒內的 WebRTC 能力，見 [沙盒中的 WebRTC](https://docs.scalebox.dev/zh-tw/guides/webrtc-in-sandboxes)。
+
+<Cards>
+  <Card title="CLI 參考" href="https://docs.scalebox.dev/zh-tw/cli/" />
+  <Card title="API 參考" href="https://docs.scalebox.dev/zh-tw/api/" />
+  <Card title="Python SDK" href="https://github.com/scalebox-dev/scalebox-sdk-python" />
+  <Card title="JavaScript SDK" href="https://github.com/scalebox-dev/scalebox-sdk-js" />
+  <Card title="Golang SDK" href="https://github.com/scalebox-dev/scalebox-sdk-golang" />
+</Cards>

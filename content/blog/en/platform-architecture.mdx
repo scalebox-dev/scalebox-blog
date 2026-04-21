@@ -1,0 +1,109 @@
+---
+title: ScaleBox platform architecture
+description: How ScaleBox fits together—control plane, sandboxes, and the console, API, CLI, and SDKs you use to manage them.
+author: ScaleBox Team
+date: 2026-04-21
+icon: Layers
+---
+
+## What you are using
+
+ScaleBox provides **isolated sandbox environments**: each sandbox has defined CPU, memory, storage, networking, and optional features such as exposed ports, WebRTC, and configurable egress behavior. You work with sandboxes through templates, projects, and user-facing interfaces rather than underlying orchestration concepts. A **control plane** (REST API, persistence, scheduling, and billing) receives your requests, provisions sandboxes, and tracks their lifecycle and usage.
+
+The important architectural point is that ScaleBox is built around **one sandbox engine** but exposes **four user-facing paths**: **web console**, **HTTP API**, **CLI**, and **SDKs**. The product tries to keep each path as end-to-end as possible so users do not have to switch surfaces in the middle of a workflow.
+
+## The control plane and your sandboxes
+
+- **Control plane** — The ScaleBox backend exposes versioned HTTP routes (for example under `/v1/...`), authenticates requests (typically with an API key), and coordinates templates, projects, sandboxes, networking, archives, billing, and related operations. It is the authority for lifecycle and metadata.
+- **Sandbox runtime** — Each running sandbox is a flexible workload environment. It can host the sandbox agent, user processes, notebook kernels, custom web services, TCP services, WebRTC endpoints, and other application-specific workloads defined by its template and runtime configuration.
+
+All user-facing tools ultimately depend on the **same** control plane, but they may interact with a running sandbox in different ways depending on the workflow.
+
+## Web console (dashboard)
+
+The **console** is the browser UI for your organization: sign-in, API keys, templates, sandbox list and detail, usage and billing views, and interactive flows that mirror what the API can do.
+
+**Best for:** discovery, day-to-day operations without writing code, issuing and rotating API keys, and sharing context with teammates who prefer a GUI.
+
+**Relationship to the API:** The console is a client of the same backend the API serves. Anything you can do in the UI has a corresponding API concept (sandboxes, templates, keys, etc.), documented under [API Reference](https://docs.scalebox.dev/en/api/).
+
+## HTTP API
+
+The **REST API** is the contract for automation and integrations. Use it from any language or tool that can send HTTPS requests with your API key (header such as `X-API-Key`). It covers control-plane operations directly, and it also proxies selected low-level sandbox operations such as file handling, terminal access, and command execution so API-first users can stay on one path as much as possible.
+
+**Best for:** CI/CD, custom internal tools, services that create and manage sandboxes on demand, and integrations that want one stable backend path for most operations.
+
+**Relationship to other tools:** The CLI and SDKs call these endpoints; they are not a separate product surface. For route-level detail, see [API Reference](https://docs.scalebox.dev/en/api/).
+
+## CLI (`scalebox-cli`)
+
+The **CLI** packages most public backend capabilities as commands: auth, sandboxes, templates, projects, API keys, notifications, webhooks, usage, billing, and more. For sandboxes, it covers not only create/list/connect flows but also file-oriented and command-oriented workflows such as `sandbox exec`, plus advanced `sandbox run-code` flows on compatible templates. It stores credentials locally (for example under `~/.scalebox-cli/`) and targets your chosen API base URL.
+
+**Best for:** terminal-first workflows, scripts, and operators who want readable commands and JSON output without maintaining SDK dependencies.
+
+**Relationship to the API:** The CLI uses the backend for control-plane tasks, but for many in-sandbox operations it can also connect directly to the sandbox domain with sandbox-specific credentials. This gives a more complete end-to-end terminal workflow while still fitting the same product model. See [CLI Reference](https://docs.scalebox.dev/en/cli/) for installation, authentication, and command topics.
+
+## SDKs (Python, JavaScript, Go, …)
+
+Official **SDKs** wrap the HTTP API with idiomatic types, helpers, and error handling for your language. They are distributed as separate repositories (for example Python, JavaScript, and Go clients linked from the docs home).
+
+**Best for:** long-lived applications, agents, notebooks, and backends that manage sandboxes as part of product logic.
+
+**Relationship to the API:** SDKs are maintained against the same REST API, but like the CLI they may also switch to direct sandbox-domain access after the backend returns runtime connection details such as `sandbox_domain` and sandbox-scoped tokens.
+
+## How the pieces work together
+
+<Cards>
+  <Card
+    title="1. Four user paths"
+    description="You can use the web console, the CLI, an SDK, or raw HTTP API calls. ScaleBox tries to keep each path usable end-to-end so you do not have to switch tools mid-workflow."
+  />
+  <Card
+    title="2. Backend as control plane"
+    description="The backend is the authority for authentication, templates, projects, sandbox lifecycle, networking setup, resource management, usage, and billing."
+  />
+  <Card
+    title="3. Running sandbox as flexible runtime"
+    description="A running sandbox is not just a file/exec target. It can host the sandbox agent, custom web services, TCP services, notebook kernels, WebRTC endpoints, and other template-defined workloads."
+  />
+  <Card
+    title="4. Two interaction modes"
+    description="After provisioning, clients can either keep using backend-proxied operations for continuity, or talk directly to the sandbox domain for files, terminal, custom services, streams, and other runtime interactions."
+  />
+</Cards>
+
+**Architecture summary**
+
+`Web console / CLI / SDK / custom HTTP` → `backend control plane` → `sandbox created and exposed` → `backend-proxied access and/or direct sandbox-domain access`
+
+| Operation area | Main path | What it covers |
+|---|---|---|
+| Control-plane operations | Client → backend | Auth, templates, projects, create, pause, resume, terminate, resource management, usage, billing |
+| Backend-proxied low-level operations | Client → backend → sandbox | File handling, terminal access, exec, stream/observe/cancel flows, and similar end-to-end paths for users who stay on one interface |
+| Direct runtime interaction | Client → sandbox domain | Custom services on exposed ports, direct HTTP/WebSocket access, TCP/TLS services, WebRTC endpoints, and other sandbox-hosted workloads |
+| Sandbox-agent capabilities | Direct or proxied | Filesystem operations, process/PTY access, command execution, watch/stream flows, and template-dependent `run-code` / execution-context features |
+
+Typical flow:
+
+1. You **authenticate** (console session or API key for CLI/SDK/API).
+2. You define **templates** and create **sandboxes** through whichever surface fits (console click-path, `scalebox-cli sandbox create`, SDK call, or `POST` to the API).
+3. The control plane **provisions and runs** your sandbox; you **poll or stream** status via API/CLI/SDK or watch the console.
+4. You then **work with the running sandbox** either through backend-proxied operations or by connecting directly to the sandbox domain, depending on the interface and the runtime capability you need.
+
+Surfaces are **composable**: many teams use the console for keys and visibility, the CLI for local iteration, and the API or SDK in production automation.
+
+## Getting started
+
+1. **Account** — Sign up on your ScaleBox instance and open the [dashboard](https://www.scalebox.dev/dashboard) to create or copy an **API key**.
+2. **Pick a surface** — Use the [CLI quick start](https://docs.scalebox.dev/en/cli/quick-start) for terminal setup, or choose an SDK from the links on the [Guides overview](https://docs.scalebox.dev/en/guides), or call the API directly using [API Reference](https://docs.scalebox.dev/en/api/).
+3. **Create a sandbox** — Start from a public template, then explore ports, lifecycle, and advanced topics in the guides and CLI/API docs.
+
+For a feature-focused walkthrough of WebRTC inside sandboxes, see [WebRTC in Sandboxes](https://docs.scalebox.dev/en/guides/webrtc-in-sandboxes).
+
+<Cards>
+  <Card title="CLI Reference" href="https://docs.scalebox.dev/en/cli/" />
+  <Card title="API Reference" href="https://docs.scalebox.dev/en/api/" />
+  <Card title="Python SDK" href="https://github.com/scalebox-dev/scalebox-sdk-python" />
+  <Card title="JavaScript SDK" href="https://github.com/scalebox-dev/scalebox-sdk-js" />
+  <Card title="Golang SDK" href="https://github.com/scalebox-dev/scalebox-sdk-golang" />
+</Cards>
