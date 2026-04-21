@@ -20,6 +20,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# linked master-project repos (local workspace convenience; do not track)
+/scalebox
+/scalebox-docs
+
 # others
 .env
 .env*.local
